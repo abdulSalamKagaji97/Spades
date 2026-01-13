@@ -1,10 +1,10 @@
 import os
 import json
-import threading
+from eventlet.semaphore import Semaphore
 
 class GameStore:
     def __init__(self):
-        self.lock = threading.RLock()
+        self.lock = Semaphore(1)
         self.path = os.path.join(os.path.dirname(__file__), "game_state.json")
 
     def save(self, state):

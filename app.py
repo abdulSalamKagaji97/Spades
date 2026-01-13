@@ -49,18 +49,20 @@ socketio = SocketIO(
 
 _manager = None
 _store = None
-_initialized = False
 
-def init_game():
-    global _manager, _store, _initialized
-    if _initialized:
-        return
+def get_manager():
+    global _manager
+    if _manager is None:
+        _manager = GameManager()
+    return _manager
 
-    _manager = GameManager()
-    _store = GameStore()
-    register_events(socketio, _manager, _store)
+def get_store():
+    global _store
+    if _store is None:
+        _store = GameStore()
+    return _store
 
-    _initialized = True
+register_events(socketio, get_manager, get_store)
 
 # ----------------------------
 # Routes
@@ -68,7 +70,6 @@ def init_game():
 
 @app.route("/")
 def index():
-    init_game()
     return render_template("index.html")
 
 @app.route("/health")
