@@ -1,4 +1,4 @@
-from eventlet.semaphore import Semaphore
+import threading
 import json
 import uuid
 from typing import List, Dict, Optional
@@ -28,7 +28,7 @@ class GameState:
         self.deck: List[Card] = []
         self.spades_broken: bool = False
         self.history: List[Dict] = []
-        self.lock = Semaphore(1)
+        self.lock = threading.RLock()
 
     def player_count(self):
         return len(self.players)
@@ -128,7 +128,8 @@ class GameState:
             return {"ok": True, "complete": False}
 
     def advance_turn(self):
-        self.turn_index = (self.turn_index + 1) % self.player_count()
+        with self.lock:
+            self.turn_index = (self.turn_index + 1) % self.player_count()
 
     def play_card(self, pid, card_str):
         with self.lock:
@@ -187,7 +188,7 @@ class GameState:
 
 class GameManager:
     def __init__(self):
-        self.lock = Semaphore(1)
+        self.lock = threading.RLock()
         self.active: Optional[GameState] = None
 
     def has_active(self):
