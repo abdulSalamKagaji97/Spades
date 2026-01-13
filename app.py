@@ -20,8 +20,10 @@
 #     return render_template("index.html")
 # application = app
 
+import warnings
 import eventlet
 eventlet.monkey_patch()
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import os
 from flask import Flask, render_template
