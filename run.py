@@ -1,8 +1,8 @@
-import os
 import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 import eventlet
 eventlet.monkey_patch()
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+import os
 
 from app import app, socketio
 
