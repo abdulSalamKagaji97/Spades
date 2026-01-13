@@ -1,21 +1,84 @@
+# from flask import Flask, render_template
+# from flask_socketio import SocketIO
+# try:
+#     from .game_engine.game_state import GameManager
+#     from .storage.game_store import GameStore
+#     from .sockets.events import register_events
+# except ImportError:
+#     from game_engine.game_state import GameManager
+#     from storage.game_store import GameStore
+#     from sockets.events import register_events
+
+# app = Flask(__name__, template_folder="templates", static_folder="static")
+# socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
+# manager = GameManager()
+# store = GameStore()
+# register_events(socketio, manager, store)
+
+# @app.route("/")
+# def index():
+#     return render_template("index.html")
+# application = app
+
+import eventlet
+eventlet.monkey_patch()
+
+import os
 from flask import Flask, render_template
 from flask_socketio import SocketIO
-try:
-    from .game_engine.game_state import GameManager
-    from .storage.game_store import GameStore
-    from .sockets.events import register_events
-except ImportError:
-    from game_engine.game_state import GameManager
-    from storage.game_store import GameStore
-    from sockets.events import register_events
+
+from game_engine.game_state import GameManager
+from storage.game_store import GameStore
+from sockets.events import register_events
+
+# ----------------------------
+# Flask + SocketIO setup
+# ----------------------------
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
-manager = GameManager()
-store = GameStore()
-register_events(socketio, manager, store)
+
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="eventlet"
+)
+
+# ----------------------------
+# Lazy game initialization
+# ----------------------------
+
+_manager = None
+_store = None
+_initialized = False
+
+def init_game():
+    global _manager, _store, _initialized
+    if _initialized:
+        return
+
+    _manager = GameManager()
+    _store = GameStore()
+    register_events(socketio, _manager, _store)
+
+    _initialized = True
+
+# ----------------------------
+# Routes
+# ----------------------------
 
 @app.route("/")
 def index():
+    init_game()
     return render_template("index.html")
-application = app
+
+@app.route("/health")
+def health():
+    return "OK", 200
+
+# ----------------------------
+# Entry point (Railway)
+# ----------------------------
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    socketio.run(app, host="0.0.0.0", port=port)
