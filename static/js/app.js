@@ -965,7 +965,7 @@ function onGameUpdate(payload) {
   renderAll();
 }
 function boot() {
-  state.socket = io();
+  state.socket = io({ transports: ["websocket"], upgrade: false });
   bindUI();
   bindPhaseControls();
   document.addEventListener("click", ensureAudio, { once: true });

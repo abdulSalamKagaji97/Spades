@@ -1,4 +1,4 @@
-import threading
+from eventlet.semaphore import Semaphore
 import json
 import uuid
 from typing import List, Dict, Optional
@@ -28,7 +28,7 @@ class GameState:
         self.deck: List[Card] = []
         self.spades_broken: bool = False
         self.history: List[Dict] = []
-        self.lock = threading.RLock()
+        self.lock = Semaphore(1)
 
     def player_count(self):
         return len(self.players)
@@ -62,7 +62,8 @@ class GameState:
         }
 
     def add_player(self, pid, name):
-        with self.lock:
+        self.lock.acquire()
+        try:
             seat = len(self.players)
             self.players.append({"id": pid, "name": name, "seat": seat})
             if seat == 0:
@@ -70,22 +71,28 @@ class GameState:
             self.hands[pid] = []
             self.wins[pid] = 0
             self.scores.setdefault(pid, 0)
+        finally:
+            self.lock.release()
 
     def start(self):
-        with self.lock:
+        self.lock.acquire()
+        try:
             n = self.player_count()
             # self.total_rounds = 52 // n
             self.total_rounds = 3
             self.current_round = 1
             self.dealer_index = 0
             self.phase = "deal"
+        finally:
+            self.lock.release()
 
     def anticlockwise_order(self, start_index):
         n = self.player_count()
         return [(start_index + i) % n for i in range(n)]
 
     def deal_round(self):
-        with self.lock:
+        self.lock.acquire()
+        try:
             n = self.player_count()
             r = self.current_round
             self.deck = shuffle(new_deck())
@@ -108,9 +115,12 @@ class GameState:
             self.trick_cards = []
             self.spades_broken = False
             self.phase = "estimate"
+        finally:
+            self.lock.release()
 
     def submit_estimate(self, pid, value):
-        with self.lock:
+        self.lock.acquire()
+        try:
             n = self.current_round
             if not validate_estimate(value, n):
                 return {"ok": False, "error": "estimate_invalid"}
@@ -126,13 +136,19 @@ class GameState:
                 return {"ok": True, "complete": True}
             self.estimate_turn_index = (self.estimate_turn_index + 1) % self.player_count()
             return {"ok": True, "complete": False}
+        finally:
+            self.lock.release()
 
     def advance_turn(self):
-        with self.lock:
+        self.lock.acquire()
+        try:
             self.turn_index = (self.turn_index + 1) % self.player_count()
+        finally:
+            self.lock.release()
 
     def play_card(self, pid, card_str):
-        with self.lock:
+        self.lock.acquire()
+        try:
             idx = self.player_index(pid)
             if not validate_play_turn(self.turn_index, idx):
                 return {"ok": False}
@@ -175,9 +191,12 @@ class GameState:
             else:
                 self.advance_turn()
                 return {"ok": True, "end_trick": False, "end_round": False}
+        finally:
+            self.lock.release()
 
     def next_round_or_end(self):
-        with self.lock:
+        self.lock.acquire()
+        try:
             if self.current_round < self.total_rounds:
                 self.current_round += 1
                 self.dealer_index = (self.dealer_index + 1) % self.player_count()
@@ -185,23 +204,29 @@ class GameState:
                 return {"over": False}
             self.phase = "finished"
             return {"over": True}
+        finally:
+            self.lock.release()
 
 class GameManager:
     def __init__(self):
-        self.lock = threading.RLock()
+        self.lock = Semaphore(1)
         self.active: Optional[GameState] = None
 
     def has_active(self):
         return self.active is not None and self.active.phase != "finished"
 
     def create_game(self):
-        with self.lock:
+        self.lock.acquire()
+        try:
             code = str(uuid.uuid4())[:6].upper()
             self.active = GameState(code)
             return self.active
+        finally:
+            self.lock.release()
 
     def join(self, pid, name, code):
-        with self.lock:
+        self.lock.acquire()
+        try:
             if self.active is None or self.active.code != code:
                 return False
             if self.active.phase != "lobby":
@@ -210,9 +235,12 @@ class GameManager:
                 return False
             self.active.add_player(pid, name)
             return True
+        finally:
+            self.lock.release()
 
     def start_if_ready(self):
-        with self.lock:
+        self.lock.acquire()
+        try:
             if not self.active or not (2 <= self.active.player_count() <= 6):
                 return False
             if self.active.phase == "lobby":
@@ -221,7 +249,12 @@ class GameManager:
             if self.active.phase == "deal":
                 return True
             return False
+        finally:
+            self.lock.release()
 
     def state(self):
-        with self.lock:
+        self.lock.acquire()
+        try:
             return self.active
+        finally:
+            self.lock.release()

@@ -1,5 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 from game_engine.game_state import GameManager
@@ -16,5 +14,4 @@ register_events(socketio, manager, store)
 def index():
     return render_template("index.html")
 
-if __name__ == "__main__":
-    socketio.run(app, host="127.0.0.1", port=8000)
+application = app
