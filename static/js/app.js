@@ -1135,6 +1135,20 @@ function boot() {
     const secs = d && typeof d.seconds === "number" ? d.seconds : 15;
     startPauseCountdown(secs, name + " disconnected");
   });
+  state.socket.on("game_resumed", () => {
+    try {
+      clearInterval(state._countdownTimer);
+      state._countdownTimer = null;
+      state.trickPauseUntil = 0;
+      const b = $("inlineBanner");
+      if (b) {
+        b.style.display = "none";
+        b.textContent = "";
+      }
+    } catch {}
+    showToast("Game resumed", "success");
+    renderAll();
+  });
   state.socket.on("game_over", (d) => {
     const winnerId = d && d.winner_id ? d.winner_id : null;
     let winnerName = "";

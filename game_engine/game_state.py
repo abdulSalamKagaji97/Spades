@@ -29,6 +29,8 @@ class GameState:
         self.spades_broken: bool = False
         self.history: List[Dict] = []
         self.lock = threading.RLock()
+        self.paused_until: float = 0.0
+        self.paused_by: str = ""
 
     def player_count(self):
         return len(self.players)
@@ -59,6 +61,8 @@ class GameState:
             "scores": dict(self.scores),
             "history": list(self.history),
             "trick": [{"player_id": t["player_id"], "card": serialize_card(t["card"])} for t in self.trick_cards],
+            "paused_until": self.paused_until,
+            "paused_by": self.paused_by,
         }
 
     def add_player(self, pid, name):

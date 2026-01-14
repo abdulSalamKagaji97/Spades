@@ -10,7 +10,13 @@ def register_events(socketio, get_manager, get_store):
             state = manager.state()
             if not state or state.code != code or state.phase == "finished":
                 return
+            if getattr(state, "paused_until", 0) <= 0:
+                return
+            if time.time() < getattr(state, "paused_until", 0):
+                return
             with state.lock:
+                state.paused_until = 0
+                state.paused_by = ""
                 state.phase = "finished"
             store = get_store()
             try:
@@ -43,6 +49,14 @@ def register_events(socketio, get_manager, get_store):
                 disc = p
                 break
         if disc and state.phase not in ("lobby", "finished"):
+            with state.lock:
+                state.paused_by = disc.get("name")
+                state.paused_until = time.time() + 15
+            store = get_store()
+            try:
+                store.save(state)
+            except Exception:
+                pass
             emit("game_paused", {"name": disc.get("name"), "seconds": 15}, room=state.code)
             schedule_end_due_to_disconnect(disc.get("name"), state.code)
             try:
@@ -75,6 +89,45 @@ def register_events(socketio, get_manager, get_store):
             emit("error", {"message": "code_required"})
             return
         manager = get_manager()
+        state = manager.state()
+        if state and state.code == code and state.phase not in ("lobby", "finished") and getattr(state, "paused_until", 0) > time.time():
+            pid_new = request.sid
+            found = None
+            for p in state.players:
+                if p.get("name") == name:
+                    found = p
+                    break
+            if found:
+                pid_old = found.get("id")
+                with state.lock:
+                    found["id"] = pid_new
+                    if state.host_id == pid_old:
+                        state.host_id = pid_new
+                    if pid_old in state.hands:
+                        state.hands[pid_new] = state.hands.pop(pid_old)
+                    if pid_old in state.wins:
+                        state.wins[pid_new] = state.wins.pop(pid_old)
+                    if pid_old in state.scores:
+                        state.scores[pid_new] = state.scores.pop(pid_old)
+                    if pid_old in state.estimates:
+                        state.estimates[pid_new] = state.estimates.pop(pid_old)
+                    for t in state.trick_cards:
+                        if t.get("player_id") == pid_old:
+                            t["player_id"] = pid_new
+                    state.paused_until = 0
+                    state.paused_by = ""
+                try:
+                    join_room(state.code)
+                except Exception:
+                    pass
+                store = get_store()
+                try:
+                    store.save(state)
+                except Exception:
+                    pass
+                emit("game_resumed", {}, room=state.code)
+                emit("game_state_update", state.to_dict(), room=state.code)
+                return
         ok = manager.join(request.sid, name, code)
         if not ok:
             emit("error", {"message": "join_failed"})
@@ -210,10 +263,19 @@ def register_events(socketio, get_manager, get_store):
             for t in state.trick_cards:
                 if t.get("player_id") == pid_old:
                     t["player_id"] = pid_new
+            if getattr(state, "paused_until", 0) > 0:
+                state.paused_until = 0
+                state.paused_by = ""
         try:
             join_room(state.code)
         except Exception:
             pass
+        store = get_store()
+        try:
+            store.save(state)
+        except Exception:
+            pass
+        emit("game_resumed", {}, room=state.code)
         emit("game_state_update", state.to_dict(), room=state.code)
 
     @socketio.on("leave_game")
@@ -241,6 +303,13 @@ def register_events(socketio, get_manager, get_store):
             except Exception:
                 pass
             if state.phase not in ("lobby", "finished"):
+                with state.lock:
+                    state.paused_by = disc_name or "Player"
+                    state.paused_until = time.time() + 15
+                try:
+                    store.save(state)
+                except Exception:
+                    pass
                 emit("game_paused", {"name": disc_name or "Player", "seconds": 15}, room=state.code)
                 schedule_end_due_to_disconnect(disc_name or "Player", state.code)
             emit("game_state_update", state.to_dict(), room=state.code)
