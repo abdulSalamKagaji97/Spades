@@ -248,7 +248,8 @@ function renderFocus() {
       state.game.turn_index !== null
         ? state.game.players[state.game.turn_index]
         : null;
-    turn.textContent = p ? "Turn: " + p.name : "";
+    const paused2 = Date.now() < (state.trickPauseUntil || 0);
+    turn.textContent = paused2 ? "" : p ? "Turn: " + p.name : "";
     const hand = document.createElement("div");
     hand.className = "hand-row-bottom hand-arc";
     const cards = state.game.hands[state.me] || [];
@@ -698,11 +699,7 @@ function startCountdown(seconds, prefix) {
     const now = Date.now();
     const remainingMs = Math.max(0, (state.trickPauseUntil || 0) - now);
     const remaining = Math.ceil(remainingMs / 1000);
-    b.textContent =
-      (prefix ? prefix + " • " : "") +
-      "Next trick in " +
-      String(remaining) +
-      "s";
+    b.textContent = (prefix ? prefix + " • " : "") + String(remaining) + "s";
     if (remainingMs <= 0) {
       clearInterval(state._countdownTimer);
       state._countdownTimer = null;
