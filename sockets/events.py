@@ -134,3 +134,48 @@ def register_events(socketio, get_manager, get_store):
             except Exception:
                 pass
         emit("game_state_update", gs.to_dict(), room=gs.code)
+
+    @socketio.on("resume_session")
+    def resume_session(data):
+        manager = get_manager()
+        state = manager.state()
+        name = (data or {}).get("player_name")
+        code = (data or {}).get("game_code")
+        if not state or not code or state.code != code:
+            emit("error", {"message": "resume_failed"})
+            return
+        if not name or not str(name).strip():
+            emit("error", {"message": "resume_failed"})
+            return
+        pid_new = request.sid
+        found = None
+        for p in state.players:
+            if p.get("name") == name:
+                found = p
+                break
+        if not found:
+            emit("error", {"message": "resume_failed"})
+            return
+        pid_old = found.get("id")
+        if pid_old == pid_new:
+            join_room(state.code)
+            emit("game_state_update", state.to_dict(), room=state.code)
+            return
+        with state.lock:
+            found["id"] = pid_new
+            if pid_old in state.hands:
+                state.hands[pid_new] = state.hands.pop(pid_old)
+            if pid_old in state.wins:
+                state.wins[pid_new] = state.wins.pop(pid_old)
+            if pid_old in state.scores:
+                state.scores[pid_new] = state.scores.pop(pid_old)
+            if pid_old in state.estimates:
+                state.estimates[pid_new] = state.estimates.pop(pid_old)
+            for t in state.trick_cards:
+                if t.get("player_id") == pid_old:
+                    t["player_id"] = pid_new
+        try:
+            join_room(state.code)
+        except Exception:
+            pass
+        emit("game_state_update", state.to_dict(), room=state.code)

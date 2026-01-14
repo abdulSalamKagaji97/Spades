@@ -839,7 +839,13 @@ function bindUI() {
         setStatus("Name is required");
         return;
       }
+      try {
+        localStorage.setItem("playerName", name);
+      } catch {}
       if (code) {
+        try {
+          localStorage.setItem("gameCode", code);
+        } catch {}
         state.socket.emit("join_game", { game_code: code, player_name: name });
       } else {
         state.socket.emit("create_game", { player_name: name });
@@ -944,6 +950,11 @@ function bindPhaseControls() {
 }
 function onGameUpdate(payload) {
   state.game = payload;
+  try {
+    if (state.game && state.game.code) {
+      localStorage.setItem("gameCode", state.game.code);
+    }
+  } catch {}
   if (state.game && state.game.phase !== "estimate") state.estimator = 0;
   if (state.game && state.game.phase !== "play") state.selectedCard = null;
   const prev = state.prevTrickLen || 0;
@@ -969,8 +980,24 @@ function boot() {
   bindUI();
   bindPhaseControls();
   document.addEventListener("click", ensureAudio, { once: true });
+  function attemptResume() {
+    try {
+      const name = localStorage.getItem("playerName");
+      const code = localStorage.getItem("gameCode");
+      if (name && code) {
+        state.socket.emit("resume_session", { player_name: name, game_code: code });
+      }
+    } catch {}
+  }
+  state.socket.on("connect", () => {
+    attemptResume();
+  });
+  state.socket.on("disconnect", () => {
+    setStatus("Disconnected");
+  });
   state.socket.on("connected", (d) => {
     state.me = d.sid;
+    attemptResume();
   });
   state.socket.on("game_state_update", onGameUpdate);
   state.socket.on("error", (msg) => {
