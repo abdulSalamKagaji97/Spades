@@ -14,6 +14,7 @@ const state = {
   _confettiShown: false,
   audioCtx: null,
   prevTrickLen: 0,
+  lastCompletedTrick: [],
   trickPauseUntil: 0,
   _countdownTimer: null,
   _countdownTicks: 0,
@@ -230,7 +231,11 @@ function renderFocus() {
     wrap.className = "play-view";
     const table = document.createElement("div");
     table.className = "table-cards";
-    state.game.trick.forEach((t) => {
+    const paused = Date.now() < (state.trickPauseUntil || 0);
+    const trickCards = paused
+      ? state.lastCompletedTrick || []
+      : state.game.trick || [];
+    trickCards.forEach((t) => {
       const c = t.card;
       const d = document.createElement("div");
       d.className = "played-card";
@@ -248,9 +253,7 @@ function renderFocus() {
     hand.className = "hand-row-bottom hand-arc";
     const cards = state.game.hands[state.me] || [];
     const leadSuit =
-      state.game.trick && state.game.trick.length > 0
-        ? state.game.trick[0].card.s
-        : null;
+      trickCards && trickCards.length > 0 ? trickCards[0].card.s : null;
     const hasLead = leadSuit ? cards.some((c) => c.s === leadSuit) : false;
     hand.innerHTML = "";
     const n2 = cards.length;
@@ -311,7 +314,6 @@ function renderFocus() {
       state.game.turn_index !== null &&
       state.game.players[state.game.turn_index] &&
       state.game.players[state.game.turn_index].id === state.me;
-    const paused = Date.now() < (state.trickPauseUntil || 0);
     renderDock("Play Card", !paused && myTurn && !!state.selectedCard);
     setStatus("");
     return;
@@ -1043,6 +1045,8 @@ function bindPhaseControls() {
   });
 }
 function onGameUpdate(payload) {
+  const prevGame = state.game;
+  const prevTrick = prevGame && prevGame.trick ? prevGame.trick.slice() : [];
   state.game = payload;
   try {
     if (state.game && state.game.code) {
@@ -1055,6 +1059,9 @@ function onGameUpdate(payload) {
   const cur =
     (state.game && state.game.trick ? state.game.trick.length : 0) || 0;
   if (cur > prev) playCardPlay();
+  if (prev > 0 && cur === 0) {
+    state.lastCompletedTrick = prevTrick;
+  }
   state.prevTrickLen = cur;
   if (
     state.game &&
@@ -1108,6 +1115,12 @@ function boot() {
   });
   state.socket.on("end_trick", (d) => {
     try {
+      if (d && d.trick && Array.isArray(d.trick)) {
+        state.lastCompletedTrick = d.trick.map((t) => ({
+          player_id: t.player_id,
+          card: { s: t.card.s, r: t.card.r },
+        }));
+      }
       const idx =
         d && typeof d.winner_index === "number" ? d.winner_index : null;
       const p =

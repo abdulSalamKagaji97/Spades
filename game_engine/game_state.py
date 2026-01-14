@@ -188,6 +188,7 @@ class GameState:
             hand.remove(card)
             self.trick_cards.append({"player_id": pid, "card": card})
             if len(self.trick_cards) == self.player_count():
+                last = [{"player_id": t["player_id"], "card": serialize_card(t["card"])} for t in self.trick_cards]
                 plays = [(self.player_index(t["player_id"]), t["card"]) for t in self.trick_cards]
                 lead_suit = self.trick_cards[0]["card"].suit
                 if lead_suit != "S" and any(c.suit == "S" for _, c in plays):
@@ -210,8 +211,8 @@ class GameState:
                         player = next(p for p in self.players if p["id"] == pid)
                         round_entry["players"].append({"id": pid, "name": player["name"], "estimate": est, "wins": w, "delta": delta})
                     self.history.append(round_entry)
-                    return {"ok": True, "end_trick": True, "winner_index": winner_idx, "end_round": True}
-                return {"ok": True, "end_trick": True, "winner_index": winner_idx, "end_round": False}
+                    return {"ok": True, "end_trick": True, "winner_index": winner_idx, "end_round": True, "last_trick": last}
+                return {"ok": True, "end_trick": True, "winner_index": winner_idx, "end_round": False, "last_trick": last}
             else:
                 self.advance_turn()
                 return {"ok": True, "end_trick": False, "end_round": False}

@@ -187,7 +187,7 @@ def register_events(socketio, get_manager, get_store):
         store.save(state)
         emit("game_state_update", state.to_dict(), room=state.code)
         if result.get("end_trick"):
-            emit("end_trick", {"winner_index": result.get("winner_index")}, room=state.code)
+            emit("end_trick", {"winner_index": result.get("winner_index"), "trick": result.get("last_trick")}, room=state.code)
         if result.get("end_round"):
             emit("end_round", {"round": state.current_round}, room=state.code)
             next_info = state.next_round_or_end()
