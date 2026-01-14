@@ -32,6 +32,27 @@ def register_events(socketio, get_manager, get_store):
                     winner_id = pid
             emit("game_over", {"scores": state.scores, "winner_id": winner_id}, room=code)
         socketio.start_background_task(task)
+    def schedule_next_round_after_delay(code):
+        def task():
+            socketio.sleep(3)
+            manager = get_manager()
+            state = manager.state()
+            if not state or state.code != code or state.phase not in ("score", "deal"):
+                return
+            next_info = state.next_round_or_end()
+            store = get_store()
+            try:
+                store.save(state)
+            except Exception:
+                pass
+            emit("game_state_update", state.to_dict(), room=code)
+            if next_info.get("over"):
+                emit("game_over", {"scores": state.scores}, room=code)
+                try:
+                    store.delete()
+                except Exception:
+                    pass
+        socketio.start_background_task(task)
     @socketio.on("connect")
     def on_connect():
         emit("connected", {"sid": request.sid})
@@ -190,12 +211,7 @@ def register_events(socketio, get_manager, get_store):
             emit("end_trick", {"winner_index": result.get("winner_index"), "trick": result.get("last_trick")}, room=state.code)
         if result.get("end_round"):
             emit("end_round", {"round": state.current_round}, room=state.code)
-            next_info = state.next_round_or_end()
-            store.save(state)
-            emit("game_state_update", state.to_dict(), room=state.code)
-            if next_info.get("over"):
-                emit("game_over", {"scores": state.scores}, room=state.code)
-                store.delete()
+            schedule_next_round_after_delay(state.code)
 
     @socketio.on("play_again")
     def play_again(data=None):

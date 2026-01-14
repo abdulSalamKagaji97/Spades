@@ -750,6 +750,39 @@ function startPauseCountdown(seconds, prefix) {
   update();
   state._countdownTimer = setInterval(update, 200);
 }
+function startRoundCountdown(seconds, prefix) {
+  const b = $("inlineBanner");
+  if (!b) return;
+  try {
+    clearInterval(state._countdownTimer);
+  } catch {}
+  const total = Math.max(0, Math.floor(seconds));
+  state._countdownTicks = total * 10;
+  state.trickPauseUntil = Date.now() + total * 1000;
+  b.style.display = "block";
+  const update = () => {
+    const now = Date.now();
+    const remainingMs = Math.max(0, (state.trickPauseUntil || 0) - now);
+    const remaining = Math.ceil(remainingMs / 1000);
+    b.textContent =
+      (prefix ? prefix + " • " : "") +
+      "Next round in " +
+      String(remaining) +
+      "s";
+    if (remainingMs <= 0) {
+      clearInterval(state._countdownTimer);
+      state._countdownTimer = null;
+      state.trickPauseUntil = 0;
+      setTimeout(() => {
+        b.style.display = "none";
+        b.textContent = "";
+        renderAll();
+      }, 200);
+    }
+  };
+  update();
+  state._countdownTimer = setInterval(update, 200);
+}
 function runDealToHand() {
   const host = document.querySelector(".card-surface");
   const hand = document.querySelector(".estimate-view .hand-row");
@@ -1141,7 +1174,7 @@ function boot() {
       state._countdownTimer = null;
       state.trickPauseUntil = 0;
     } catch {}
-    showToast("Round ended", "info");
+    startRoundCountdown(3, "Round ended");
   });
   state.socket.on("game_paused", (d) => {
     const name = d && d.name ? d.name : "Player";
