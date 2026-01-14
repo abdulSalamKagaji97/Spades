@@ -1132,7 +1132,7 @@ function boot() {
   });
   state.socket.on("game_paused", (d) => {
     const name = d && d.name ? d.name : "Player";
-    const secs = d && typeof d.seconds === "number" ? d.seconds : 15;
+    const secs = d && typeof d.seconds === "number" ? d.seconds : 30;
     startPauseCountdown(secs, name + " disconnected");
   });
   state.socket.on("game_resumed", () => {
