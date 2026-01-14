@@ -655,7 +655,7 @@ body {
 }
 .card-surface {
   width: 100%;
-  max-width: 720px;
+  max-width: 840px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -666,12 +666,11 @@ body {
 @media (max-width: 480px) {
   .focus-area {
     padding: 0;
-    place-items: stretch;
+    place-items: center;
   }
   .card-surface {
-    max-width: 100%;
+    max-width: 840px;
     width: 100%;
-    border-radius: 0;
     padding: 12px;
   }
 }
