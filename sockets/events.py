@@ -1,7 +1,31 @@
 from flask import request
 from flask_socketio import emit, join_room, leave_room
+import time
 
 def register_events(socketio, get_manager, get_store):
+    def schedule_end_due_to_disconnect(name, code):
+        def task():
+            socketio.sleep(15)
+            manager = get_manager()
+            state = manager.state()
+            if not state or state.code != code or state.phase == "finished":
+                return
+            with state.lock:
+                state.phase = "finished"
+            store = get_store()
+            try:
+                store.save(state)
+            except Exception:
+                pass
+            emit("game_state_update", state.to_dict(), room=code)
+            winner_id = None
+            best = None
+            for pid, sc in (state.scores or {}).items():
+                if best is None or (sc or 0) > (best or 0):
+                    best = sc or 0
+                    winner_id = pid
+            emit("game_over", {"scores": state.scores, "winner_id": winner_id}, room=code)
+        socketio.start_background_task(task)
     @socketio.on("connect")
     def on_connect():
         emit("connected", {"sid": request.sid})
@@ -10,11 +34,21 @@ def register_events(socketio, get_manager, get_store):
     def on_disconnect():
         manager = get_manager()
         state = manager.state()
-        if state:
-            pid = request.sid
-            if any(p["id"] == pid for p in state.players):
+        if not state:
+            return
+        pid = request.sid
+        disc = None
+        for p in state.players:
+            if p["id"] == pid:
+                disc = p
+                break
+        if disc and state.phase not in ("lobby", "finished"):
+            emit("game_paused", {"name": disc.get("name"), "seconds": 15}, room=state.code)
+            schedule_end_due_to_disconnect(disc.get("name"), state.code)
+            try:
                 leave_room(state.code)
-                emit("game_state_update", state.to_dict(), room=state.code)
+            except Exception:
+                pass
 
     @socketio.on("create_game")
     def create_game(data):
@@ -191,6 +225,11 @@ def register_events(socketio, get_manager, get_store):
             emit("error", {"message": "leave_failed"})
             return
         pid = request.sid
+        disc_name = None
+        for p in state.players:
+            if p.get("id") == pid:
+                disc_name = p.get("name")
+                break
         ok = state.remove_player(pid)
         try:
             leave_room(state.code)
@@ -201,6 +240,9 @@ def register_events(socketio, get_manager, get_store):
                 store.save(state)
             except Exception:
                 pass
+            if state.phase not in ("lobby", "finished"):
+                emit("game_paused", {"name": disc_name or "Player", "seconds": 15}, room=state.code)
+                schedule_end_due_to_disconnect(disc_name or "Player", state.code)
             emit("game_state_update", state.to_dict(), room=state.code)
         else:
             emit("error", {"message": "leave_failed"})

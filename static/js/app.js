@@ -215,7 +215,10 @@ function renderFocus() {
     wrap.appendChild(hand);
     if (est) wrap.appendChild(est);
     root.appendChild(wrap);
-    renderDock("Submit Estimate", myTurn);
+    {
+      const paused = Date.now() < (state.trickPauseUntil || 0);
+      renderDock("Submit Estimate", myTurn && !paused);
+    }
     setStatus("");
     if (state.dealing) {
       requestAnimationFrame(runDealToHand);
@@ -712,6 +715,39 @@ function startCountdown(seconds, prefix) {
   update();
   state._countdownTimer = setInterval(update, 200);
 }
+function startPauseCountdown(seconds, prefix) {
+  const b = $("inlineBanner");
+  if (!b) return;
+  try {
+    clearInterval(state._countdownTimer);
+  } catch {}
+  const total = Math.max(0, Math.floor(seconds));
+  state._countdownTicks = total * 10;
+  state.trickPauseUntil = Date.now() + total * 1000;
+  b.style.display = "block";
+  const update = () => {
+    const now = Date.now();
+    const remainingMs = Math.max(0, (state.trickPauseUntil || 0) - now);
+    const remaining = Math.ceil(remainingMs / 1000);
+    b.textContent =
+      (prefix ? prefix + " • " : "") +
+      "Game ends in " +
+      String(remaining) +
+      "s";
+    if (remainingMs <= 0) {
+      clearInterval(state._countdownTimer);
+      state._countdownTimer = null;
+      state.trickPauseUntil = 0;
+      setTimeout(() => {
+        b.style.display = "none";
+        b.textContent = "";
+        renderAll();
+      }, 200);
+    }
+  };
+  update();
+  state._countdownTimer = setInterval(update, 200);
+}
 function runDealToHand() {
   const host = document.querySelector(".card-surface");
   const hand = document.querySelector(".estimate-view .hand-row");
@@ -1088,8 +1124,22 @@ function boot() {
     } catch {}
     showToast("Round ended", "info");
   });
-  state.socket.on("game_over", () => {
-    showToast("Game over", "info");
+  state.socket.on("game_paused", (d) => {
+    const name = d && d.name ? d.name : "Player";
+    const secs = d && typeof d.seconds === "number" ? d.seconds : 15;
+    startPauseCountdown(secs, name + " disconnected");
+  });
+  state.socket.on("game_over", (d) => {
+    const winnerId = d && d.winner_id ? d.winner_id : null;
+    let winnerName = "";
+    if (winnerId && state.game && state.game.players) {
+      const p = state.game.players.find((x) => x.id === winnerId);
+      winnerName = p && p.name ? p.name : "";
+    }
+    showToast(
+      winnerName ? "Game over • Winner: " + winnerName : "Game over",
+      "info"
+    );
     playGameWin();
   });
   renderAll();

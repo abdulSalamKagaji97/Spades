@@ -166,8 +166,6 @@ class GameState:
                 self.turn_index %= n
             if self.estimate_turn_index is not None:
                 self.estimate_turn_index %= n
-            if self.phase != "lobby" and n < 2:
-                self.phase = "finished"
             return True
     def play_card(self, pid, card_str):
         with self.lock:
