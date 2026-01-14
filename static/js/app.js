@@ -973,7 +973,13 @@ function renderOverlays() {
   if (!estHost || !scHost) return;
   estHost.innerHTML = "";
   scHost.innerHTML = "";
-  if (!state.game) return;
+  if (!state.game || state.game.phase === "lobby") {
+    estHost.style.display = "none";
+    scHost.style.display = "none";
+    return;
+  }
+  estHost.style.display = "block";
+  scHost.style.display = "block";
   const estimates = state.game.estimates || {};
   const scores = state.game.scores || {};
   const players = (state.game.players || []).slice(0, 6);
