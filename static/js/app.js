@@ -14,6 +14,9 @@ const state = {
   _confettiShown: false,
   audioCtx: null,
   prevTrickLen: 0,
+  trickPauseUntil: 0,
+  _countdownTimer: null,
+  _countdownTicks: 0,
 };
 function $(id) {
   return document.getElementById(id);
@@ -280,7 +283,9 @@ function renderFocus() {
         state.game.turn_index !== null &&
         state.game.players[state.game.turn_index] &&
         state.game.players[state.game.turn_index].id === state.me;
-      const canPlay = myTurn && (!leadSuit || !hasLead || c.s === leadSuit);
+      const paused = Date.now() < (state.trickPauseUntil || 0);
+      const canPlay =
+        !paused && myTurn && (!leadSuit || !hasLead || c.s === leadSuit);
       if (canPlay) {
         d.onclick = () => {
           state.selectedCard = d.dataset.card;
@@ -303,7 +308,8 @@ function renderFocus() {
       state.game.turn_index !== null &&
       state.game.players[state.game.turn_index] &&
       state.game.players[state.game.turn_index].id === state.me;
-    renderDock("Play Card", myTurn && !!state.selectedCard);
+    const paused = Date.now() < (state.trickPauseUntil || 0);
+    renderDock("Play Card", !paused && myTurn && !!state.selectedCard);
     setStatus("");
     return;
   }
@@ -673,6 +679,39 @@ function showInline(message) {
     b.textContent = "";
   }, 2000);
 }
+function startCountdown(seconds, prefix) {
+  const b = $("inlineBanner");
+  if (!b) return;
+  try {
+    clearInterval(state._countdownTimer);
+  } catch {}
+  const total = Math.max(0, Math.floor(seconds));
+  state._countdownTicks = total * 10;
+  state.trickPauseUntil = Date.now() + total * 1000;
+  b.style.display = "block";
+  const update = () => {
+    const now = Date.now();
+    const remainingMs = Math.max(0, (state.trickPauseUntil || 0) - now);
+    const remaining = Math.ceil(remainingMs / 1000);
+    b.textContent =
+      (prefix ? prefix + " • " : "") +
+      "Next trick in " +
+      String(remaining) +
+      "s";
+    if (remainingMs <= 0) {
+      clearInterval(state._countdownTimer);
+      state._countdownTimer = null;
+      state.trickPauseUntil = 0;
+      setTimeout(() => {
+        b.style.display = "none";
+        b.textContent = "";
+        renderAll();
+      }, 200);
+    }
+  };
+  update();
+  state._countdownTimer = setInterval(update, 200);
+}
 function runDealToHand() {
   const host = document.querySelector(".card-surface");
   const hand = document.querySelector(".estimate-view .hand-row");
@@ -985,7 +1024,10 @@ function boot() {
       const name = localStorage.getItem("playerName");
       const code = localStorage.getItem("gameCode");
       if (name && code) {
-        state.socket.emit("resume_session", { player_name: name, game_code: code });
+        state.socket.emit("resume_session", {
+          player_name: name,
+          game_code: code,
+        });
       }
     } catch {}
   }
@@ -1018,14 +1060,19 @@ function boot() {
           ? state.game.players[idx]
           : null;
       const name = p && p.name ? p.name : "Unknown";
-      showInline("Trick winner: " + name);
+      startCountdown(3, "Trick winner: " + name);
       playTrickWin();
     } catch {
-      showInline("Trick ended");
+      startCountdown(3, "Trick ended");
       playTrickWin();
     }
   });
   state.socket.on("end_round", (d) => {
+    try {
+      clearInterval(state._countdownTimer);
+      state._countdownTimer = null;
+      state.trickPauseUntil = 0;
+    } catch {}
     showToast("Round ended", "info");
   });
   state.socket.on("game_over", () => {

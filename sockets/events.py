@@ -163,6 +163,8 @@ def register_events(socketio, get_manager, get_store):
             return
         with state.lock:
             found["id"] = pid_new
+            if state.host_id == pid_old:
+                state.host_id = pid_new
             if pid_old in state.hands:
                 state.hands[pid_new] = state.hands.pop(pid_old)
             if pid_old in state.wins:
