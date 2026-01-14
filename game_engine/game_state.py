@@ -230,39 +230,46 @@ class GameState:
 class GameManager:
     def __init__(self):
         self.lock = threading.RLock()
-        self.active: Optional[GameState] = None
-
-    def has_active(self):
-        return self.active is not None and self.active.phase != "finished"
-
+        self.games: Dict[str, GameState] = {}
+ 
     def create_game(self):
         with self.lock:
             code = str(uuid.uuid4())[:6].upper()
-            self.active = GameState(code)
-            return self.active
-
+            gs = GameState(code)
+            self.games[code] = gs
+            return gs
+ 
+    def get(self, code: str) -> Optional[GameState]:
+        with self.lock:
+            return self.games.get(code)
+ 
     def join(self, pid, name, code):
         with self.lock:
-            if self.active is None or self.active.code != code:
+            gs = self.games.get(code)
+            if gs is None:
                 return False
-            if self.active.phase != "lobby":
+            if gs.phase != "lobby":
                 return False
-            if not validate_join(self.active.player_count(), 6):
+            if not validate_join(gs.player_count(), 6):
                 return False
-            self.active.add_player(pid, name)
+            gs.add_player(pid, name)
             return True
-
-    def start_if_ready(self):
+ 
+    def start_if_ready(self, code: str):
         with self.lock:
-            if not self.active or not (2 <= self.active.player_count() <= 6):
+            gs = self.games.get(code)
+            if not gs or not (2 <= gs.player_count() <= 6):
                 return False
-            if self.active.phase == "lobby":
-                self.active.start()
+            if gs.phase == "lobby":
+                gs.start()
                 return True
-            if self.active.phase == "deal":
+            if gs.phase == "deal":
                 return True
             return False
-
-    def state(self):
+ 
+    def state_for_sid(self, sid: str) -> Optional[GameState]:
         with self.lock:
-            return self.active
+            for gs in self.games.values():
+                if any(p.get("id") == sid for p in gs.players):
+                    return gs
+            return None

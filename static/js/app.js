@@ -875,6 +875,7 @@ function renderDock(label, enabled) {
     return;
   }
   const estimates = state.game.estimates || {};
+  const wins = state.game.wins || {};
   const tokens = (state.game.players || []).map((p) => {
     const v =
       typeof estimates[p.id] === "number" ? String(estimates[p.id]) : "—";
@@ -1016,13 +1017,14 @@ function renderOverlays() {
   scHost.style.display = "block";
   const estimates = state.game.estimates || {};
   const scores = state.game.scores || {};
+  const wins = state.game.wins || {};
   const players = (state.game.players || []).slice(0, 6);
   const title1 = document.createElement("div");
   title1.className = "overlay-title";
   title1.textContent = "Estimates";
   estHost.appendChild(title1);
   const table1 = document.createElement("div");
-  table1.className = "mini-table";
+  table1.className = "mini-table mini-table-3";
   players.forEach((p) => {
     const row = document.createElement("div");
     row.className = "mini-row";
@@ -1034,8 +1036,13 @@ function renderOverlays() {
     const v =
       typeof estimates[p.id] === "number" ? String(estimates[p.id]) : "—";
     c2.textContent = v;
+    const c3 = document.createElement("div");
+    c3.className = "mini-cell";
+    const w = typeof wins[p.id] === "number" ? String(wins[p.id]) : "0";
+    c3.textContent = w;
     row.appendChild(c1);
     row.appendChild(c2);
+    row.appendChild(c3);
     table1.appendChild(row);
   });
   estHost.appendChild(table1);

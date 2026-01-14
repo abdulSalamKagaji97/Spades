@@ -663,6 +663,18 @@ body {
   padding: 20px;
   position: relative;
 }
+@media (max-width: 480px) {
+  .focus-area {
+    padding: 0;
+    place-items: stretch;
+  }
+  .card-surface {
+    max-width: 100%;
+    width: 100%;
+    border-radius: 0;
+    padding: 12px;
+  }
+}
 .inline-banner {
   display: none;
   margin-bottom: 8px;
@@ -815,6 +827,7 @@ body {
   gap: 12px;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
 }
 .played-card {
   width: 60px;
@@ -1040,6 +1053,9 @@ body {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 6px 10px;
+}
+.mini-table-3 {
+  grid-template-columns: 1fr auto auto;
 }
 .mini-row {
   display: contents;

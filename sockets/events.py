@@ -7,7 +7,7 @@ def register_events(socketio, get_manager, get_store):
         def task():
             socketio.sleep(15)
             manager = get_manager()
-            state = manager.state()
+            state = manager.get(code)
             if not state or state.code != code or state.phase == "finished":
                 return
             if getattr(state, "paused_until", 0) <= 0:
@@ -34,9 +34,9 @@ def register_events(socketio, get_manager, get_store):
         socketio.start_background_task(task)
     def schedule_next_round_after_delay(code):
         def task():
-            # socketio.sleep(3)
+            socketio.sleep(3)
             manager = get_manager()
-            state = manager.state()
+            state = manager.get(code)
             if not state or state.code != code or state.phase not in ("score", "deal"):
                 return
             next_info = state.next_round_or_end()
@@ -49,7 +49,7 @@ def register_events(socketio, get_manager, get_store):
             if next_info.get("over"):
                 socketio.emit("game_over", {"scores": state.scores}, room=code)
                 try:
-                    store.delete()
+                    store.delete_code(code)
                 except Exception:
                     pass
         socketio.start_background_task(task)
@@ -57,7 +57,7 @@ def register_events(socketio, get_manager, get_store):
         def task():
             socketio.sleep(3)
             manager = get_manager()
-            state = manager.state()
+            state = manager.get(code)
             if not state or state.code != code or state.phase != "score":
                 return
             socketio.emit("end_round", {"round": state.current_round}, room=code)
@@ -70,7 +70,7 @@ def register_events(socketio, get_manager, get_store):
     @socketio.on("disconnect")
     def on_disconnect():
         manager = get_manager()
-        state = manager.state()
+        state = manager.state_for_sid(request.sid)
         if not state:
             return
         pid = request.sid
@@ -102,9 +102,7 @@ def register_events(socketio, get_manager, get_store):
             emit("error", {"message": "name_required"})
             return
         manager = get_manager()
-        store = get_store()
         gs = manager.create_game()
-        store.delete()
         manager.join(request.sid, name, gs.code)
         join_room(gs.code)
         emit("game_state_update", gs.to_dict(), room=gs.code)
@@ -120,7 +118,7 @@ def register_events(socketio, get_manager, get_store):
             emit("error", {"message": "code_required"})
             return
         manager = get_manager()
-        state = manager.state()
+        state = manager.get(code)
         if state and state.code == code and state.phase not in ("lobby", "finished") and getattr(state, "paused_until", 0) > time.time():
             pid_new = request.sid
             found = None
@@ -163,7 +161,7 @@ def register_events(socketio, get_manager, get_store):
         if not ok:
             emit("error", {"message": "join_failed"})
             return
-        state = manager.state()
+        state = manager.get(code)
         join_room(state.code)
         emit("game_state_update", state.to_dict(), room=state.code)
 
@@ -171,14 +169,14 @@ def register_events(socketio, get_manager, get_store):
     def start_round(data=None):
         manager = get_manager()
         store = get_store()
-        state = manager.state()
+        state = manager.state_for_sid(request.sid)
         if not state or request.sid != state.host_id:
             emit("error", {"message": "not_host"})
             return
-        if not manager.start_if_ready():
+        if not manager.start_if_ready(state.code):
             emit("error", {"message": "start_failed"})
             return
-        state = manager.state()
+        state = manager.get(state.code)
         state.deal_round()
         store.save(state)
         emit("start_round", {"round": state.current_round}, room=state.code)
@@ -188,7 +186,7 @@ def register_events(socketio, get_manager, get_store):
     def submit_estimate(data):
         manager = get_manager()
         store = get_store()
-        state = manager.state()
+        state = manager.state_for_sid(request.sid)
         if not state or state.phase != "estimate":
             emit("error", {"message": "invalid_phase"})
             return
@@ -205,7 +203,7 @@ def register_events(socketio, get_manager, get_store):
     def play_card(data):
         manager = get_manager()
         store = get_store()
-        state = manager.state()
+        state = manager.state_for_sid(request.sid)
         if not state or state.phase != "play":
             emit("error", {"message": "invalid_phase"})
             return
@@ -226,14 +224,13 @@ def register_events(socketio, get_manager, get_store):
     def play_again(data=None):
         manager = get_manager()
         store = get_store()
-        prev = manager.state()
+        prev = manager.state_for_sid(request.sid)
         if not prev or prev.phase != "finished":
             emit("error", {"message": "not_finished"})
             return
         players = list(prev.players)
         old_code = prev.code
         gs = manager.create_game()
-        store.delete()
         players_sorted = sorted(players, key=lambda p: p.get("seat", 0))
         for p in players_sorted:
             manager.join(p["id"], p["name"], gs.code)
@@ -250,9 +247,9 @@ def register_events(socketio, get_manager, get_store):
     @socketio.on("resume_session")
     def resume_session(data):
         manager = get_manager()
-        state = manager.state()
-        name = (data or {}).get("player_name")
         code = (data or {}).get("game_code")
+        state = manager.get(code)
+        name = (data or {}).get("player_name")
         if not state or not code or state.code != code:
             emit("error", {"message": "resume_failed"})
             return
@@ -307,7 +304,7 @@ def register_events(socketio, get_manager, get_store):
     def leave_game(data=None):
         manager = get_manager()
         store = get_store()
-        state = manager.state()
+        state = manager.state_for_sid(request.sid)
         if not state:
             emit("error", {"message": "leave_failed"})
             return
