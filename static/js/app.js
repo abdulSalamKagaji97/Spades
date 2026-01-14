@@ -320,23 +320,8 @@ function renderFocus() {
     return;
   }
   if (phase === "score") {
-    const wrap = document.createElement("div");
-    wrap.className = "score-view";
-    const pid = state.me;
-    const wins = state.game.wins[pid] || 0;
-    const est = state.game.estimates[pid] || 0;
-    const delta = wins >= est ? Math.max(0, wins) : -Math.max(0, est - wins);
-    const res = document.createElement("div");
-    res.className =
-      "round-result " + (delta >= 0 ? "result-positive" : "result-negative");
-    res.textContent = (delta >= 0 ? "+" : "") + String(delta);
-    const txt = document.createElement("div");
-    txt.className = "status-text";
-    txt.textContent = "Round result";
-    wrap.appendChild(res);
-    wrap.appendChild(txt);
-    root.appendChild(wrap);
-    renderDock("Continue", false);
+    renderDock("", false);
+    setStatus("");
     return;
   }
   if (phase === "finished") {
