@@ -131,6 +131,44 @@ class GameState:
         with self.lock:
             self.turn_index = (self.turn_index + 1) % self.player_count()
 
+    def remove_player(self, pid):
+        with self.lock:
+            idx = None
+            for i, p in enumerate(self.players):
+                if p.get("id") == pid:
+                    idx = i
+                    break
+            if idx is None:
+                return False
+            removed = self.players.pop(idx)
+            self.hands.pop(pid, None)
+            self.wins.pop(pid, None)
+            self.scores.pop(pid, None)
+            self.estimates.pop(pid, None)
+            self.trick_cards = [t for t in self.trick_cards if t.get("player_id") != pid]
+            for i, p in enumerate(self.players):
+                p["seat"] = i
+            n = self.player_count()
+            if self.host_id == pid:
+                self.host_id = self.players[0]["id"] if n > 0 else None
+            if n == 0:
+                self.dealer_index = None
+                self.lead_index = None
+                self.turn_index = None
+                self.estimate_turn_index = None
+                self.phase = "lobby"
+                return True
+            if self.dealer_index is not None:
+                self.dealer_index %= n
+            if self.lead_index is not None:
+                self.lead_index %= n
+            if self.turn_index is not None:
+                self.turn_index %= n
+            if self.estimate_turn_index is not None:
+                self.estimate_turn_index %= n
+            if self.phase != "lobby" and n < 2:
+                self.phase = "finished"
+            return True
     def play_card(self, pid, card_str):
         with self.lock:
             idx = self.player_index(pid)

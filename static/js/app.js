@@ -848,6 +848,19 @@ function bindUI() {
     state.insightExpanded = !state.insightExpanded;
     renderInsight();
   };
+  $("exitBtn").onclick = () => {
+    try {
+      state.socket.emit("leave_game");
+    } catch {}
+    try {
+      localStorage.removeItem("gameCode");
+    } catch {}
+    state.game = null;
+    state._confettiShown = false;
+    setStatus("");
+    showToast("Exited game", "info");
+    renderAll();
+  };
   $("stripHandle").onclick = () => {
     state.insightExpanded = !state.insightExpanded;
     renderInsight();

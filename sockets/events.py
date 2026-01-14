@@ -181,3 +181,26 @@ def register_events(socketio, get_manager, get_store):
         except Exception:
             pass
         emit("game_state_update", state.to_dict(), room=state.code)
+
+    @socketio.on("leave_game")
+    def leave_game(data=None):
+        manager = get_manager()
+        store = get_store()
+        state = manager.state()
+        if not state:
+            emit("error", {"message": "leave_failed"})
+            return
+        pid = request.sid
+        ok = state.remove_player(pid)
+        try:
+            leave_room(state.code)
+        except Exception:
+            pass
+        if ok:
+            try:
+                store.save(state)
+            except Exception:
+                pass
+            emit("game_state_update", state.to_dict(), room=state.code)
+        else:
+            emit("error", {"message": "leave_failed"})
