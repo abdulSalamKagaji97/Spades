@@ -1150,6 +1150,22 @@ function boot() {
     renderAll();
   });
   state.socket.on("game_over", (d) => {
+    try {
+      clearInterval(state._countdownTimer);
+      state._countdownTimer = null;
+      state.trickPauseUntil = 0;
+      const b = $("inlineBanner");
+      if (b) {
+        b.style.display = "none";
+        b.textContent = "";
+      }
+    } catch {}
+    if (state.game) {
+      state.game.phase = "finished";
+      if (d && d.scores) {
+        state.game.scores = d.scores;
+      }
+    }
     const winnerId = d && d.winner_id ? d.winner_id : null;
     let winnerName = "";
     if (winnerId && state.game && state.game.players) {
@@ -1161,6 +1177,7 @@ function boot() {
       "info"
     );
     playGameWin();
+    renderAll();
   });
   renderAll();
 }
