@@ -320,6 +320,23 @@ function renderFocus() {
     return;
   }
   if (phase === "score") {
+    const paused = Date.now() < (state.trickPauseUntil || 0);
+    if (paused && (state.lastCompletedTrick || []).length > 0) {
+      const wrap = document.createElement("div");
+      wrap.className = "play-view";
+      const table = document.createElement("div");
+      table.className = "table-cards";
+      const trickCards = state.lastCompletedTrick || [];
+      trickCards.forEach((t) => {
+        const c = t.card;
+        const d = document.createElement("div");
+        d.className = "played-card";
+        d.textContent = rankText(c.r) + " " + suitChar(c.s);
+        table.appendChild(d);
+      });
+      wrap.appendChild(table);
+      root.appendChild(wrap);
+    }
     renderDock("", false);
     setStatus("");
     return;
@@ -1145,9 +1162,11 @@ function boot() {
       const name = p && p.name ? p.name : "Unknown";
       startCountdown(3, "Trick winner: " + name);
       playTrickWin();
+      renderAll();
     } catch {
       startCountdown(3, "Trick ended");
       playTrickWin();
+      renderAll();
     }
   });
   state.socket.on("end_round", (d) => {

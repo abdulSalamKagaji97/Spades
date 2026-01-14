@@ -23,18 +23,18 @@ def register_events(socketio, get_manager, get_store):
                 store.save(state)
             except Exception:
                 pass
-            emit("game_state_update", state.to_dict(), room=code)
+            socketio.emit("game_state_update", state.to_dict(), room=code)
             winner_id = None
             best = None
             for pid, sc in (state.scores or {}).items():
                 if best is None or (sc or 0) > (best or 0):
                     best = sc or 0
                     winner_id = pid
-            emit("game_over", {"scores": state.scores, "winner_id": winner_id}, room=code)
+            socketio.emit("game_over", {"scores": state.scores, "winner_id": winner_id}, room=code)
         socketio.start_background_task(task)
     def schedule_next_round_after_delay(code):
         def task():
-            socketio.sleep(3)
+            # socketio.sleep(3)
             manager = get_manager()
             state = manager.state()
             if not state or state.code != code or state.phase not in ("score", "deal"):
@@ -45,13 +45,23 @@ def register_events(socketio, get_manager, get_store):
                 store.save(state)
             except Exception:
                 pass
-            emit("game_state_update", state.to_dict(), room=code)
+            socketio.emit("game_state_update", state.to_dict(), room=code)
             if next_info.get("over"):
-                emit("game_over", {"scores": state.scores}, room=code)
+                socketio.emit("game_over", {"scores": state.scores}, room=code)
                 try:
                     store.delete()
                 except Exception:
                     pass
+        socketio.start_background_task(task)
+    def schedule_end_round_announcement(code):
+        def task():
+            socketio.sleep(3)
+            manager = get_manager()
+            state = manager.state()
+            if not state or state.code != code or state.phase != "score":
+                return
+            socketio.emit("end_round", {"round": state.current_round}, room=code)
+            schedule_next_round_after_delay(code)
         socketio.start_background_task(task)
     @socketio.on("connect")
     def on_connect():
@@ -206,12 +216,11 @@ def register_events(socketio, get_manager, get_store):
             emit("error", {"message": "play_invalid"})
             return
         store.save(state)
-        emit("game_state_update", state.to_dict(), room=state.code)
+        socketio.emit("game_state_update", state.to_dict(), room=state.code)
         if result.get("end_trick"):
             emit("end_trick", {"winner_index": result.get("winner_index"), "trick": result.get("last_trick")}, room=state.code)
         if result.get("end_round"):
-            emit("end_round", {"round": state.current_round}, room=state.code)
-            schedule_next_round_after_delay(state.code)
+            schedule_end_round_announcement(state.code)
 
     @socketio.on("play_again")
     def play_again(data=None):
