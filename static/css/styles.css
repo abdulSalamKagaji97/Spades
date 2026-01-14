@@ -588,9 +588,9 @@ body {
   grid-area: context;
   position: sticky;
   top: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   padding: 12px 16px;
   background: rgba(18, 22, 28, 0.7);
   backdrop-filter: blur(8px);
@@ -603,6 +603,15 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.context-left {
+  justify-self: start;
+}
+.context-center {
+  justify-self: center;
+}
+.context-right {
+  justify-self: end;
 }
 .icon-btn {
   height: 32px;
