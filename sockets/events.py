@@ -31,6 +31,10 @@ def register_events(socketio, get_manager, get_store):
                     best = sc or 0
                     winner_id = pid
             socketio.emit("game_over", {"scores": state.scores, "winner_id": winner_id}, room=code)
+            try:
+                store.delete_code(code)
+            except Exception:
+                pass
         socketio.start_background_task(task)
     def schedule_next_round_after_delay(code):
         def task():
