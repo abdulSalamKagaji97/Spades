@@ -18,6 +18,8 @@ const state = {
   trickPauseUntil: 0,
   _countdownTimer: null,
   _countdownTicks: 0,
+  orderAscEstimate: false,
+  orderAscTable: false,
 };
 function $(id) {
   return document.getElementById(id);
@@ -37,6 +39,16 @@ function rankText(r) {
 }
 function cardKey(c) {
   return c.s + "-" + c.r;
+}
+function suitValue(s) {
+  if (s === "C") return 0;
+  if (s === "D") return 1;
+  if (s === "H") return 2;
+  return 3;
+}
+function compareCardAsc(a, b) {
+  if (a.r !== b.r) return a.r - b.r;
+  return suitValue(a.s) - suitValue(b.s);
 }
 function setPhaseBadge(phase) {
   const el = $("phaseBadge");
@@ -64,6 +76,10 @@ function renderFocus() {
   root.innerHTML = "";
   const secondary = $("secondaryAction");
   if (secondary) secondary.style.display = "none";
+  {
+    const old = document.getElementById("surfaceActions");
+    if (old) old.remove();
+  }
   if (!state.game) {
     const wrap = document.createElement("div");
     wrap.className = "lobby-view";
@@ -168,9 +184,22 @@ function renderFocus() {
     turnLabel.textContent = turnPlayer
       ? "Estimating: " + turnPlayer.name
       : "Estimating";
+    const orderBtn = document.createElement("button");
+    orderBtn.className = "icon-btn";
+    orderBtn.id = "btnOrderAsc";
+    orderBtn.title = "Group suits, sort ascending";
+    orderBtn.textContent = "⇅";
     const hand = document.createElement("div");
     hand.className = "hand-row-flex";
-    const cards = state.game.hands[state.me] || [];
+    const rawCards = state.game.hands[state.me] || [];
+    const cards = state.orderAscEstimate
+      ? rawCards.slice().sort((a, b) => {
+          const sa = suitValue(a.s);
+          const sb = suitValue(b.s);
+          if (sa !== sb) return sa - sb;
+          return a.r - b.r;
+        })
+      : rawCards;
     hand.innerHTML = "";
     wrap.appendChild(turnLabel);
     cards.forEach((c) => {
@@ -216,6 +245,14 @@ function renderFocus() {
     wrap.appendChild(hand);
     if (est) wrap.appendChild(est);
     root.appendChild(wrap);
+    const cs = document.querySelector(".card-surface");
+    if (cs) {
+      const actionsHost = document.createElement("div");
+      actionsHost.id = "surfaceActions";
+      actionsHost.className = "surface-actions";
+      actionsHost.appendChild(orderBtn);
+      cs.appendChild(actionsHost);
+    }
     {
       const paused = Date.now() < (state.trickPauseUntil || 0);
       renderDock("Submit Estimate", myTurn && !paused);
@@ -232,7 +269,7 @@ function renderFocus() {
     const table = document.createElement("div");
     table.className = "table-cards";
     const paused = Date.now() < (state.trickPauseUntil || 0);
-    const trickCards = paused
+    let trickCards = paused
       ? state.lastCompletedTrick || []
       : state.game.trick || [];
     trickCards.forEach((t) => {
@@ -1092,6 +1129,10 @@ function bindPhaseControls() {
       state.estimator = Math.max(0, Math.min(max, state.estimator + 1));
       const val = $("estValue");
       if (val) val.textContent = String(state.estimator);
+    }
+    if (t.id === "btnOrderAsc") {
+      state.orderAscEstimate = true;
+      renderFocus();
     }
   });
 }
