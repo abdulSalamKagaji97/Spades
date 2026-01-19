@@ -80,7 +80,7 @@ class GameState:
             n = self.player_count()
             self.total_rounds = 52 // n
             # self.total_rounds = 3
-            self.current_round = 1
+            self.current_round = 8
             self.dealer_index = 0
             self.phase = "deal"
 

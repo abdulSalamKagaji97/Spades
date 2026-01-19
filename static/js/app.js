@@ -169,7 +169,7 @@ function renderFocus() {
       ? "Estimating: " + turnPlayer.name
       : "Estimating";
     const hand = document.createElement("div");
-    hand.className = "hand-row";
+    hand.className = "hand-row-flex";
     const cards = state.game.hands[state.me] || [];
     hand.innerHTML = "";
     wrap.appendChild(turnLabel);
@@ -240,6 +240,12 @@ function renderFocus() {
       const d = document.createElement("div");
       d.className = "played-card";
       d.textContent = rankText(c.r) + " " + suitChar(c.s);
+      const player =
+        (state.game.players || []).find((x) => x.id === t.player_id) || null;
+      const by = document.createElement("div");
+      by.className = "played-by";
+      by.textContent = player && player.name ? player.name : "Player";
+      d.appendChild(by);
       table.appendChild(d);
     });
     const turn = document.createElement("div");
@@ -332,6 +338,12 @@ function renderFocus() {
         const d = document.createElement("div");
         d.className = "played-card";
         d.textContent = rankText(c.r) + " " + suitChar(c.s);
+        const player =
+          (state.game.players || []).find((x) => x.id === t.player_id) || null;
+        const by = document.createElement("div");
+        by.className = "played-by";
+        by.textContent = player && player.name ? player.name : "Player";
+        d.appendChild(by);
         table.appendChild(d);
       });
       wrap.appendChild(table);

@@ -827,6 +827,7 @@ body {
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
+  width: 100%;
 }
 .played-card {
   width: 60px;
@@ -836,6 +837,19 @@ body {
   border: 1px solid var(--border);
   display: grid;
   place-items: center;
+  position: relative;
+}
+.played-by {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .current-player {
   font-size: 14px;
@@ -855,6 +869,14 @@ body {
   overflow: visible;
   padding-bottom: 8px;
   justify-content: center;
+  margin-top: 5%;
+}
+.hand-row-flex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  padding-bottom: 8px;
   margin-top: 5%;
 }
 .leaderboard-view {
