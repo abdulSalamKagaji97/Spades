@@ -328,6 +328,11 @@ def register_events(socketio, get_manager, get_store):
                 store.save(state)
             except Exception:
                 pass
+            try:
+                if state.player_count() == 0:
+                    store.delete_code(state.code)
+            except Exception:
+                pass
             if state.phase not in ("lobby", "finished"):
                 with state.lock:
                     state.paused_by = disc_name or "Player"
